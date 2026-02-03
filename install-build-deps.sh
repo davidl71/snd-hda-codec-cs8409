@@ -9,11 +9,11 @@ echo "Installing build dependencies for snd-hda-codec-cs8409..."
 if command -v apt-get &> /dev/null; then
     sudo apt-get update
     sudo apt-get install -y debhelper dh-dkms dkms build-essential \
-        linux-headers-$(uname -r) dpkg-sig gnupg
+        linux-headers-$(uname -r) gnupg
 elif command -v apt &> /dev/null; then
     sudo apt update
     sudo apt install -y debhelper dh-dkms dkms build-essential \
-        linux-headers-$(uname -r) dpkg-sig gnupg
+        linux-headers-$(uname -r) gnupg
 else
     echo "Error: apt/apt-get not found. This script is for Debian/Ubuntu systems."
     exit 1
@@ -27,7 +27,7 @@ echo "  - debhelper, dh-dkms: Debian packaging"
 echo "  - dkms: Dynamic Kernel Module System"
 echo "  - build-essential: Compiler toolchain"
 echo "  - linux-headers: Kernel headers"
-echo "  - dpkg-sig, gnupg: Package signing"
+echo "  - gnupg: GPG signing"
 echo ""
 echo "To build the .deb package, run:"
 echo "  dpkg-buildpackage -us -uc -b"
