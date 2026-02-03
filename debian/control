@@ -1,0 +1,23 @@
+Source: snd-hda-codec-cs8409-dkms
+Section: kernel
+Priority: optional
+Maintainer: David Lowes <davidlowes@lindog1.com>
+Build-Depends: debhelper-compat (= 13), dkms
+Standards-Version: 4.6.0
+Homepage: https://github.com/egorenar/snd-hda-codec-cs8409
+Rules-Requires-Root: no
+
+Package: snd-hda-codec-cs8409-dkms
+Architecture: all
+Depends: ${misc:Depends}, dkms, linux-headers-generic | linux-headers
+Description: HDA codec driver for Cirrus Logic CS8409 (DKMS)
+ This package provides a kernel module for the Cirrus Logic CS8409
+ HDA bridge chip, commonly found in Apple MacBook Pro and iMac systems.
+ .
+ The module is built using DKMS and will be automatically rebuilt
+ when new kernel versions are installed.
+ .
+ Supported devices include:
+  - Apple MacBook Pro (2017-2019)
+  - Apple iMac (2017-2020)
+  - Dell systems with CS8409/CS42L42

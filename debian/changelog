@@ -1,0 +1,13 @@
+snd-hda-codec-cs8409-dkms (1.0-1) unstable; urgency=medium
+
+  * Add kernel 6.17+ compatibility
+  * Add DKMS and Debian packaging support
+  * Maintain backward compatibility with older kernels
+
+ -- David Lowes <davidlowes@lindog1.com>  Tue, 04 Feb 2026 00:10:00 +0200
+
+snd-hda-codec-cs8409-dkms (0.9-1) unstable; urgency=medium
+
+  * Initial release
+
+ -- David Lowes <davidlowes@lindog1.com>  Mon, 03 Feb 2026 12:00:00 +0200

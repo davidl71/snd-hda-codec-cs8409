@@ -1,0 +1,14 @@
+Makefile usr/src/snd-hda-codec-cs8409-1.0/
+patch_cs8409.c usr/src/snd-hda-codec-cs8409-1.0/
+patch_cs8409.h usr/src/snd-hda-codec-cs8409-1.0/
+patch_cs8409-tables.c usr/src/snd-hda-codec-cs8409-1.0/
+patch_cirrus_apple.h usr/src/snd-hda-codec-cs8409-1.0/
+patch_cirrus_new84.h usr/src/snd-hda-codec-cs8409-1.0/
+patch_cirrus_real84.h usr/src/snd-hda-codec-cs8409-1.0/
+patch_cirrus_real84_i2c.h usr/src/snd-hda-codec-cs8409-1.0/
+patch_cirrus_boot84.h usr/src/snd-hda-codec-cs8409-1.0/
+patch_cirrus_hda_generic_copy.h usr/src/snd-hda-codec-cs8409-1.0/
+hda_auto_parser.h usr/src/snd-hda-codec-cs8409-1.0/
+hda_generic.h usr/src/snd-hda-codec-cs8409-1.0/
+hda_jack.h usr/src/snd-hda-codec-cs8409-1.0/
+hda_local.h usr/src/snd-hda-codec-cs8409-1.0/
