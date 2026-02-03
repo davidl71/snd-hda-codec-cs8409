@@ -47,9 +47,9 @@ else
     echo "Note: GPG_KEY_ID not set, skipping package signing"
 fi
 
-# Create GitHub release
+# Create GitHub release (use origin remote, not upstream)
 echo "Creating GitHub release v${VERSION}..."
-gh release create "v${VERSION}" \
+gh release create "v${VERSION}" --repo "$(git remote get-url origin | sed 's/.*github.com[:\/]\(.*\)\.git/\1/')" \
     --title "snd-hda-codec-cs8409 v${VERSION}" \
     --notes "## Installation
 
