@@ -9,11 +9,27 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/module.h>
+#include <linux/version.h>
 #include <sound/core.h>
 #include <linux/mutex.h>
 #include <linux/iopoll.h>
 
 #include "patch_cs8409.h"
+
+/*
+ * Kernel 6.17+ changed the HDA codec driver API:
+ * - hda_codec_ops.free renamed to .remove
+ * - codec->patch_ops removed, ops now on driver
+ * - HDA_CODEC_ENTRY replaced by HDA_CODEC_ID
+ * - snd_hda_gen_free not exported to out-of-tree modules
+ */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0)
+#define HDA_CODEC_OPS_FREE_NAME remove
+#define CS8409_USE_DRIVER_OPS 1
+#else
+#define HDA_CODEC_OPS_FREE_NAME free
+#define CS8409_USE_DRIVER_OPS 0
+#endif
 
 /******************************************************************************
  *                        CS8409 Specific Functions
@@ -958,11 +974,21 @@ static void cs8409_free(struct hda_codec *codec)
 {
 	struct cs8409_spec *spec = codec->spec;
 
+	if (!spec)
+		return;
+
 	/* Cancel i2c clock disable timer, and disable clock if left enabled */
 	cancel_delayed_work_sync(&spec->i2c_clk_work);
 	cs8409_disable_i2c_clock(codec);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0)
+	/* snd_hda_gen_free not exported in 6.17+, do our own cleanup */
+	snd_array_free(&spec->gen.paths);
+	kfree(codec->spec);
+	codec->spec = NULL;
+#else
 	snd_hda_gen_free(codec);
+#endif
 }
 
 /******************************************************************************
@@ -1080,7 +1106,7 @@ static const struct hda_codec_ops cs8409_cs42l42_patch_ops = {
 	.build_controls = cs8409_build_controls,
 	.build_pcms = snd_hda_gen_build_pcms,
 	.init = cs8409_init,
-	.free = cs8409_free,
+	.HDA_CODEC_OPS_FREE_NAME = cs8409_free,
 	.unsol_event = cs8409_cs42l42_jack_unsol_event,
 	.suspend = cs8409_cs42l42_suspend,
 };
@@ -1134,7 +1160,11 @@ void cs8409_cs42l42_fixups(struct hda_codec *codec, const struct hda_fixup *fix,
 		spec->scodecs[CS8409_CODEC0] = &cs8409_cs42l42_codec;
 		spec->num_scodecs = 1;
 		spec->scodecs[CS8409_CODEC0]->codec = codec;
+#if CS8409_USE_DRIVER_OPS
+		spec->codec_ops = &cs8409_cs42l42_patch_ops;
+#else
 		codec->patch_ops = cs8409_cs42l42_patch_ops;
+#endif
 
 		spec->gen.suppress_auto_mute = 1;
 		spec->gen.no_primary_hp = 1;
@@ -1308,7 +1338,7 @@ static const struct hda_codec_ops cs8409_dolphin_patch_ops = {
 	.build_controls = cs8409_build_controls,
 	.build_pcms = snd_hda_gen_build_pcms,
 	.init = cs8409_init,
-	.free = cs8409_free,
+	.HDA_CODEC_OPS_FREE_NAME = cs8409_free,
 	.unsol_event = dolphin_jack_unsol_event,
 	.suspend = cs8409_cs42l42_suspend,
 };
@@ -1371,7 +1401,11 @@ void dolphin_fixups(struct hda_codec *codec, const struct hda_fixup *fix, int ac
 		spec->num_scodecs = 2;
 		spec->gen.suppress_vmaster = 1;
 
+#if CS8409_USE_DRIVER_OPS
+		spec->codec_ops = &cs8409_dolphin_patch_ops;
+#else
 		codec->patch_ops = cs8409_dolphin_patch_ops;
+#endif
 
 		/* GPIO 1,5 out, 0,4 in */
 		spec->gpio_dir = spec->scodecs[CS8409_CODEC0]->reset_gpio |
@@ -1488,6 +1522,100 @@ static int patch_cs8409(struct hda_codec *codec)
 #include "patch_cirrus_apple.h"
 
 
+#if CS8409_USE_DRIVER_OPS
+/* Dispatch functions for driver-based ops (kernel 6.17+) */
+static int cs8409_codec_probe(struct hda_codec *codec, const struct hda_device_id *id)
+{
+	return patch_cs8409(codec);
+}
+
+static void cs8409_codec_remove(struct hda_codec *codec)
+{
+	struct cs8409_spec *spec = codec->spec;
+
+	if (spec && spec->codec_ops && spec->codec_ops->remove)
+		spec->codec_ops->remove(codec);
+	else
+		cs8409_free(codec);
+}
+
+static int cs8409_codec_build_controls(struct hda_codec *codec)
+{
+	struct cs8409_spec *spec = codec->spec;
+
+	if (spec && spec->codec_ops && spec->codec_ops->build_controls)
+		return spec->codec_ops->build_controls(codec);
+	return cs8409_build_controls(codec);
+}
+
+static int cs8409_codec_build_pcms(struct hda_codec *codec)
+{
+	struct cs8409_spec *spec = codec->spec;
+
+	if (spec && spec->codec_ops && spec->codec_ops->build_pcms)
+		return spec->codec_ops->build_pcms(codec);
+	return snd_hda_gen_build_pcms(codec);
+}
+
+static int cs8409_codec_init(struct hda_codec *codec)
+{
+	struct cs8409_spec *spec = codec->spec;
+
+	if (spec && spec->codec_ops && spec->codec_ops->init)
+		return spec->codec_ops->init(codec);
+	return cs8409_init(codec);
+}
+
+static void cs8409_codec_unsol_event(struct hda_codec *codec, unsigned int res)
+{
+	struct cs8409_spec *spec = codec->spec;
+
+	if (spec && spec->codec_ops && spec->codec_ops->unsol_event)
+		spec->codec_ops->unsol_event(codec, res);
+}
+
+static int cs8409_codec_suspend(struct hda_codec *codec)
+{
+	struct cs8409_spec *spec = codec->spec;
+
+	if (spec && spec->codec_ops && spec->codec_ops->suspend)
+		return spec->codec_ops->suspend(codec);
+	return 0;
+}
+
+static int cs8409_codec_resume(struct hda_codec *codec)
+{
+	struct cs8409_spec *spec = codec->spec;
+
+	if (spec && spec->codec_ops && spec->codec_ops->resume)
+		return spec->codec_ops->resume(codec);
+	return 0;
+}
+
+static const struct hda_codec_ops cs8409_driver_ops = {
+	.probe = cs8409_codec_probe,
+	.remove = cs8409_codec_remove,
+	.build_controls = cs8409_codec_build_controls,
+	.build_pcms = cs8409_codec_build_pcms,
+	.init = cs8409_codec_init,
+	.unsol_event = cs8409_codec_unsol_event,
+	.suspend = cs8409_codec_suspend,
+	.resume = cs8409_codec_resume,
+};
+
+static const struct hda_device_id snd_hda_id_cs8409[] = {
+	HDA_CODEC_ID(0x10138409, "CS8409"),
+	{} /* terminator */
+};
+MODULE_DEVICE_TABLE(hdaudio, snd_hda_id_cs8409);
+
+static struct hda_codec_driver cs8409_driver = {
+	.id = snd_hda_id_cs8409,
+	.ops = &cs8409_driver_ops,
+};
+
+#else /* !CS8409_USE_DRIVER_OPS - kernel < 6.17 */
+
 static const struct hda_device_id snd_hda_id_cs8409[] = {
 	HDA_CODEC_ENTRY(0x10138409, "CS8409", patch_cs8409),
 	{} /* terminator */
@@ -1497,6 +1625,9 @@ MODULE_DEVICE_TABLE(hdaudio, snd_hda_id_cs8409);
 static struct hda_codec_driver cs8409_driver = {
 	.id = snd_hda_id_cs8409,
 };
+
+#endif /* CS8409_USE_DRIVER_OPS */
+
 module_hda_codec_driver(cs8409_driver);
 
 MODULE_LICENSE("GPL");

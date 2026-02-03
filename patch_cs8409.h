@@ -485,6 +485,9 @@ struct cs8409_spec {
 	/* verb exec op override */
 	int (*exec_verb)(struct hdac_device *dev, unsigned int cmd, unsigned int flags,
 			 unsigned int *res);
+
+	/* Per-codec ops (kernel 6.17+ stores ops on driver, not codec) */
+	const struct hda_codec_ops *codec_ops;
 };
 
 extern const struct snd_kcontrol_new cs42l42_dac_volume_mixer;

@@ -1395,13 +1395,22 @@ static int cs_8409_apple_init(struct hda_codec *codec)
 
 static int cs_8409_apple_resume(struct hda_codec *codec)
 {
-        myprintk("snd_hda_intel: cs_8409_apple_resume\n");
-        // code copied from default resume patch ops
+#if CS8409_USE_DRIVER_OPS
+	struct cs8409_spec *spec = codec->spec;
+#endif
+
+	myprintk("snd_hda_intel: cs_8409_apple_resume\n");
+	// code copied from default resume patch ops
+#if CS8409_USE_DRIVER_OPS
+	if (spec && spec->codec_ops && spec->codec_ops->init)
+		spec->codec_ops->init(codec);
+#else
 	if (codec->patch_ops.init)
 		codec->patch_ops.init(codec);
+#endif
 	snd_hda_regmap_sync(codec);
-        myprintk("snd_hda_intel: end cs_8409_apple_resume\n");
-        return 0;
+	myprintk("snd_hda_intel: end cs_8409_apple_resume\n");
+	return 0;
 }
 
 static int cs_8409_apple_suspend(struct hda_codec *codec)
@@ -1700,17 +1709,27 @@ void cs_8409_cs42l83_jack_unsol_event(struct hda_codec *codec, unsigned int res)
 
 void cs_8409_apple_free(struct hda_codec *codec)
 {
-#if 0
-        struct cs8409_spec *spec = codec->spec;
+	struct cs8409_spec *spec = codec->spec;
 
-        /* Cancel i2c clock disable timer, and disable clock if left enabled */
-        cancel_delayed_work_sync(&spec->i2c_clk_work);
-        cs8409_disable_i2c_clock(codec);
+	if (!spec)
+		return;
+
+#if 0
+	/* Cancel i2c clock disable timer, and disable clock if left enabled */
+	cancel_delayed_work_sync(&spec->i2c_clk_work);
+	cs8409_disable_i2c_clock(codec);
 #endif
 
 	//del_timer(&cs_8409_hp_timer);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0)
+	/* snd_hda_gen_free not exported in 6.17+, do our own cleanup */
+	snd_array_free(&spec->gen.paths);
+	kfree(codec->spec);
+	codec->spec = NULL;
+#else
 	snd_hda_gen_free(codec);
+#endif
 }
 
 
@@ -1720,12 +1739,12 @@ static const struct hda_codec_ops cs_8409_apple_patch_ops = {
 	.build_controls = cs_8409_apple_build_controls,
 	.build_pcms = cs_8409_apple_build_pcms,
 	.init = cs_8409_apple_init,
-	.free = cs_8409_apple_free,
+	.HDA_CODEC_OPS_FREE_NAME = cs_8409_apple_free,
 	.unsol_event = cs_8409_cs42l83_jack_unsol_event,
 #ifdef CONFIG_PM
-        .resume = cs_8409_apple_resume,
-        .suspend = cs_8409_apple_suspend,
-        .check_power_status = cs_8409_apple_check_power_status,
+	.resume = cs_8409_apple_resume,
+	.suspend = cs_8409_apple_suspend,
+	.check_power_status = cs_8409_apple_check_power_status,
 #endif
 };
 
@@ -2586,12 +2605,17 @@ static int patch_cs8409_apple(struct hda_codec *codec)
 
 	//codec->patch_ops = cs8409_cs42l83_patch_ops;
 
-        if (explicit)
-               {
-               //codec->patch_ops = cs_8409_apple_patch_ops_explicit;
-               }
-        else
-               codec->patch_ops = cs_8409_apple_patch_ops;
+	if (explicit)
+	{
+		//spec->codec_ops = &cs_8409_apple_patch_ops_explicit;
+	}
+	else {
+#if CS8409_USE_DRIVER_OPS
+		spec->codec_ops = &cs_8409_apple_patch_ops;
+#else
+		codec->patch_ops = cs_8409_apple_patch_ops;
+#endif
+	}
 
 
 	// not sure about these
@@ -2728,12 +2752,17 @@ static int patch_cs8409_apple(struct hda_codec *codec)
 
 
 #else
-        if (explicit)
-               {
-               //codec->patch_ops = cs_8409_apple_patch_ops_explicit;
-               }
-        else
-               codec->patch_ops = cs_8409_apple_patch_ops;
+	if (explicit)
+	{
+		//spec->codec_ops = &cs_8409_apple_patch_ops_explicit;
+	}
+	else {
+#if CS8409_USE_DRIVER_OPS
+		spec->codec_ops = &cs_8409_apple_patch_ops;
+#else
+		codec->patch_ops = cs_8409_apple_patch_ops;
+#endif
+	}
 #endif
 
         // moved to post auto config
