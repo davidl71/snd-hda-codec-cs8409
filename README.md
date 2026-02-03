@@ -89,6 +89,19 @@ sudo apt remove snd-hda-codec-cs8409-dkms
 GPG_KEY_ID=YOUR_KEY_ID ./scripts/build-and-release.sh 1.0
 ```
 
+## Verifying Releases
+
+Releases are signed with GPG. To verify:
+
+```bash
+# Import the public key
+gpg --import public-key.asc
+
+# Download the .deb and .asc signature from releases
+# Verify the signature
+gpg --verify snd-hda-codec-cs8409-dkms_1.0-1_all.deb.asc snd-hda-codec-cs8409-dkms_1.0-1_all.deb
+```
+
 ## License
 
 GPL-2.0-or-later
