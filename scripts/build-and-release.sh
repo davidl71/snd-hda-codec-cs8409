@@ -11,12 +11,18 @@ GPG_KEY_ID="${GPG_KEY_ID:-}"  # Set this or pass as env var
 echo "=== Building ${PACKAGE_NAME} version ${VERSION} ==="
 
 # Check for required tools
-for cmd in dpkg-buildpackage gh gpg; do
+for cmd in dpkg-buildpackage gh; do
     if ! command -v $cmd &> /dev/null; then
         echo "Error: $cmd is required but not installed."
         exit 1
     fi
 done
+
+# Check for optional signing tools
+HAS_SIGNING=0
+if command -v dpkg-sig &> /dev/null && command -v gpg &> /dev/null; then
+    HAS_SIGNING=1
+fi
 
 # Update version in changelog if needed
 CURRENT_VERSION=$(head -1 debian/changelog | grep -oP '\(\K[^)]+')
@@ -31,11 +37,14 @@ dpkg-buildpackage -us -uc -b
 
 # Sign the .deb file
 DEB_FILE="../${PACKAGE_NAME}_${VERSION}-1_all.deb"
-if [ -n "$GPG_KEY_ID" ]; then
+if [ "$HAS_SIGNING" -eq 1 ] && [ -n "$GPG_KEY_ID" ]; then
     echo "Signing package with GPG key ${GPG_KEY_ID}..."
     dpkg-sig -k "$GPG_KEY_ID" --sign builder "$DEB_FILE"
+elif [ -n "$GPG_KEY_ID" ]; then
+    echo "Warning: dpkg-sig not installed, skipping package signing"
+    echo "Install with: sudo apt install dpkg-sig"
 else
-    echo "Warning: GPG_KEY_ID not set, skipping package signing"
+    echo "Note: GPG_KEY_ID not set, skipping package signing"
 fi
 
 # Create GitHub release
